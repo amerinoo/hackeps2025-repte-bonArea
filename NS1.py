@@ -1,43 +1,28 @@
-from opcua import Client, ua
+import snap7
+from snap7.util import get_bool, get_sint, set_sint, set_bool
 
-# URL del servidor OPC UA del PLC
-URL = "opc.tcp://10.72.101.72:4840"
+client = snap7.client.Client()
 
-client = Client(URL)
+# Conectar al PLC S7-1500 (rack 0, slot 1)
+client.connect("10.72.101.72", 0, 1)
 
-try:
-    client.connect()
-    print("Conectado a", URL)
+# Leemos DB1, desde offset 0, 256 bytes
+data = client.db_read(1, 0, 255)
 
-    led = client.get_node('ns=3;s="DATA_HACK_NS2"."ON_OFF"')
+print("RAW DATA:", data)
 
-    # Escribimos un booleano True
-    value = ua.DataValue(ua.Variant(True, ua.VariantType.Boolean))
-    led.set_value(value)
+# Siemens STRING: [MaxLen][CurrentLen][Text...]
 
-    # Leer de vuelta para comprobar
-    read_back = led.get_value()
-    print("LED:", read_back)
+# Byte 6 user and password
 
-    temps_on = client.get_node('ns=3;s="DATA_HACK_NS2"."TEMPS_ON"')
+set_bool(data, 0, 0, True)
+set_sint(data, 3, 1)  # ON
+set_sint(data, 5, 2)  # OFF
 
-    value = ua.DataValue(ua.Variant(2, ua.VariantType.Int16))
-    temps_on.set_value(value)
+# print("User/Password:", get_string(data, 6))
+print("LED:", get_bool(data, 0, 0))
+print("ON:", get_sint(data, 3))
+print("OFF:", get_sint(data, 5))
 
-    # Leer de vuelta para comprobar
-    read_back = temps_on.get_value()
-    print("ON:", read_back)
-
-    temps_off = client.get_node('ns=3;s="DATA_HACK_NS2"."TEMPS_OFF"')
-
-    value = ua.DataValue(ua.Variant(3, ua.VariantType.Int16))
-    temps_off.set_value(value)
-
-    # Leer de vuelta para comprobar
-    read_back = temps_off.get_value()
-    print("OFF:", read_back)
-
-
-finally:
-    client.disconnect()
-    print("Desconectado")
+client.db_write(1, 0, data)
+client.disconnect()
